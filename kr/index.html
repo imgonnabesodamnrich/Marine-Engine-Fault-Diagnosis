@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>논문 노트 - TSRF 선박 엔진 가독성 고장 진단</title>
+    <style>
+        /* 保持与之前版本完全一致的 CSS */
+        :root { --primary-color: #0366d6; --sidebar-bg: #f8f9fa; --content-max-width: 900px; --border-color: #d0d7de; --text-color: #1f2328; --link-color: #0969da; }
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body { font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Nanum Gothic", sans-serif; font-size: 16px; line-height: 1.6; color: var(--text-color); margin: 0; background-color: #ffffff; display: flex; }
+        .toc-sidebar { width: 300px; height: 100vh; position: fixed; left: 0; top: 0; background: var(--sidebar-bg); border-right: 1px solid var(--border-color); padding: 20px; overflow-y: auto; z-index: 10; }
+        .toc-sidebar h2 { font-size: 1.2rem; margin-top: 0; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); }
+        .toc-sidebar ul { list-style: none; padding: 0; margin: 0; }
+        .toc-sidebar li { margin: 10px 0; }
+        .toc-sidebar a { text-decoration: none; color: var(--text-color); font-size: 0.95rem; transition: color 0.2s; }
+        .toc-sidebar a:hover { color: var(--link-color); }
+        .toc-sidebar .sub-item { padding-left: 20px; font-size: 0.85rem; }
+        .main-content { margin-left: 300px; flex: 1; padding: 40px 60px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: var(--content-max-width); }
+        h1 { font-size: 2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.3em; margin-bottom: 1.5rem; }
+        h2 { font-size: 1.5rem; margin-top: 2.5rem; padding-bottom: 0.3em; border-bottom: 1px solid #eaecef; }
+        h3 { font-size: 1.25rem; margin-top: 1.5rem; color: #333; }
+        blockquote { padding: 0 1em; color: #636c76; border-left: 0.25em solid #d0d7de; margin: 1.5rem 0; background: #fcfcfc; }
+        .img-wrapper { text-align: center; margin: 2rem 0; }
+        .img-wrapper img { max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); border: 1px solid var(--border-color); }
+        .img-caption { display: block; margin-top: 8px; font-size: 0.9rem; color: #666; font-style: italic; }
+        table { width: 100%; border-collapse: collapse; margin: 1rem 0 1.5rem; display: table; }
+        th, td { padding: 10px 14px; border: 1px solid var(--border-color); }
+        th { background-color: #f6f8fa; font-weight: 600; text-align: left; }
+        tr:nth-child(2n) { background-color: #fdfdfd; }
+        tr:hover { background-color: #f8f9fa; }
+        pre { background-color: #f6f8fa; padding: 16px; border-radius: 6px; overflow: auto; font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace; font-size: 0.9rem; line-height: 1.45; border: 1px solid #e1e4e8; }
+        details { border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; background: #fafafa; }
+        summary { cursor: pointer; font-weight: 600; color: var(--link-color); outline: none; }
+        @media (max-width: 850px) { .toc-sidebar { display: none; } .main-content { margin-left: 0; padding: 20px; } }
+    </style>
+</head>
+<body>
+
+    <nav class="toc-sidebar">
+        <!-- 언어 전환 -->
+        <div style="margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); display: flex; gap: 8px; flex-wrap: wrap;">
+            <span style="font-size: 0.8rem; color: var(--text-light); width: 100%;">언어 / Language:</span>
+            <a href="../zh/index.html" style="color: var(--primary-color); font-weight: bold; font-size: 0.85rem;">中文</a>
+            <a href="../en/index.html" style="color: var(--primary-color); font-weight: bold; font-size: 0.85rem;">English</a>
+            <a href="../jp/index.html" style="color: var(--primary-color); font-weight: bold; font-size: 0.85rem;">日本語</a>
+        </div>
+        <h2>📑 목차</h2>
+        <ul>
+            <li><a href="#background">연구 배경 (Background)</a></li>
+            <li><a href="#methodology">핵심 방법론 (Methodology)</a></li>
+            <li class="sub-item"><a href="#method-1">1. 열역학 모델링 및 시뮬레이션</a></li>
+            <li class="sub-item"><a href="#method-2">2. SHAP 기반 특징 공학</a></li>
+            <li class="sub-item"><a href="#method-3">3. 랜덤 포레스트 진단 모델</a></li>
+            <li><a href="#why-shap-rf">왜 SHAP + RF 인가?</a></li>
+            <li><a href="#results">실험 결과 및 분석 (Results)</a></li>
+            <li><a href="#case-study">케이스 스터디: 피스톤 링 마모</a></li>
+            <li><a href="#bibtex">BibTeX 및 링크</a></li>
+        </ul>
+    </nav>
+
+    <main class="main-content">
+        <div class="container">
+            <header>
+                <h1>설명 가능한 고장 진단 논문 노트 — 열역학 시뮬레이션 보조 랜덤 포레스트(TSRF)</h1>
+                <blockquote>
+                    <p><strong>선박용 디젤 엔진을 위한 설명 가능한 고장 진단 프레임워크</strong></p>
+                    <p><strong>Paper Title:</strong> <em>Thermodynamic simulation-assisted random forest: Towards explainable fault diagnosis of combustion chamber components of marine diesel engines</em><br>
+                    <strong>Journal:</strong> <em>Measurement</em> (Elsevier), Vol. 251, 2025<br>
+                    <strong>DOI:</strong> <a href="https://doi.org/10.1016/j.measurement.2025.117252">10.1016/j.measurement.2025.117252</a></p>
+                </blockquote>
+                <p>
+                    <img src="https://img.shields.io/badge/DOI-10.1016%2Fj.measurement.2025.117252-blue" alt="DOI">
+                    <img src="https://img.shields.io/badge/Status-Published-success" alt="Status">
+                    <img src="https://img.shields.io/badge/Topic-Explainable%20AI-orange" alt="Topic">
+                </p>
+            </header>
+
+            <section id="background">
+                <h2>🔍 연구 배경 (Background)</h2>
+                <h3>1. 문제의 중요성 (The Criticality)</h3>
+                <p>디젤 엔진은 선박 추진 시스템의 핵심 부품으로, 내부 구조가 복잡하고 부품이 방대하다. 그 중에서도 실린더 헤드, 실린더 라이너, 피스톤 등을 포함하는 <strong>연소실 구성 부품(Combustion Chamber Components)</strong>은 엔진 기능 유지에 결정적인 역할을 한다. 고온·고압의 가혹한 환경에 장기간 노출되기 때문에 연소실은 엔진에서 가장 고장이 빈번한 부위 중 하나다. 이러한 고장은 엔진 성능 저하뿐만 아니라 항행 안전을 위협한다. 따라서 열역학 파라미터 모니터링을 통한 조기 고장 진단은 유지보수 계획 수립과 비용 절감에 있어 매우 중요하다.</p>
+
+                <h3>2. 기존 방법의 한계 (Limitations)</h3>
+                <ul>
+                    <li><strong>모델 기반 방법 (Model-Based):</strong> 물리 법칙에 기반한 수학적 모델 구축. <em>한계:</em> 모델링 과정이 복잡하고 비선형 시스템 및 변수 간 상호작용 대응이 어려우며 유연성이 부족함.</li>
+                    <li><strong>데이터 기반 방법 (Data-Driven):</strong> ML/DL을 이용한 고장 특징 자동 학습. <em>한계:</em> <strong>데이터의 질과 양에 크게 의존함.</strong> 실제 선박 고장 데이터는 매우 희귀하여 범용성이 낮고, 모델이 '블랙박스'화되어 물리적 근거를 설명할 수 없음.</li>
+                    <li><strong>하이브리드 방법 (Hybrid):</strong> 물리 모델과 데이터 기반 방법의 결합. <em>한계:</em> 기존 연구는 물리 모델을 단순 데이터 생성 도구로만 활용하며, 메커니즘 분석이 부족하여 계산 비용이 높고 여전히 설명력이 부족함.</li>
+                </ul>
+
+                <h3>3. TSRF의 접근 방식 (Motivation)</h3>
+                <p>TSRF는 기존 지능형 진단 방법의 두 가지 주요 과제를 해결하고자 한다:</p>
+                <ol>
+                    <li><strong>일반화 성능 향상:</strong> 부족한 고장 샘플을 시뮬레이션 데이터로 보완하여 다양한 운전 조건을 커버함.</li>
+                    <li><strong>설명 가능성 구현:</strong> 도메인 지식을 통합하여 엔지니어가 신뢰할 수 있는 진단 근거를 제시함.</li>
+                </ol>
+            </section>
+
+            <section id="methodology">
+                <h2>🛠 핵심 방법론 (Methodology)</h2>
+                <div class="img-wrapper">
+                    <img src="https://github.com/user-attachments/assets/b816c11c-e2f3-495e-8007-81ee097a5899" alt="SHAP Flow">
+                    <span class="img-caption">그림 1 SHAP 기반 파라미터 선정 프로세스</span>
+                </div>
+
+                <h3 id="method-1">1. 1차원 열역학 모델링 및 고장 시뮬레이션</h3>
+                <p>실험 데이터를 통해 캘리브레이션된 선박용 디젤 엔진 1차원 열역학 모델을 구축하였다.</p>
+                <div class="img-wrapper">
+                    <img src="https://github.com/user-attachments/assets/cfee6fe5-ab4a-4fb5-aa43-cf26e9a6a093" alt="Model Scheme">
+                    <span class="img-caption">그림 2 선박 엔진 열역학 모델 구성도</span>
+                </div>
+
+                <p>모델을 바탕으로 5가지 전형적인 고장 시나리오를 시뮬레이션하였다:</p>
+                <table>
+                    <thead>
+                        <tr><th>코드</th><th>고장 유형</th><th>파라미터 조정 전략</th><th>물리적 메커니즘 요약</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><strong>F0</strong></td><td>정상 상태</td><td>N/A</td><td>기준 상태</td></tr>
+                        <tr><td><strong>F1</strong></td><td>실린더 헤드 균열</td><td>헤드 표면 온도 상승</td><td>방열 효율 저하로 인한 국부적 열 폭주</td></tr>
+                        <tr><td><strong>F2</strong></td><td>피스톤 용손</td><td>피스톤 온도 및 블로우바이 증가</td><td>재료 박리로 인해 고온 가스가 누출됨</td></tr>
+                        <tr><td><strong>F3</strong></td><td>실린더 라이너 마모</td><td>실린더 직경 및 블로우바이 증가</td><td>간극 증대로 압축 가스 누출 발생</td></tr>
+                        <tr><td><strong>F4</strong></td><td>피스톤 링 마모</td><td>블로우바이 유량 증가</td><td>밀봉 실패로 블로우바이 현상 직접 악화</td></tr>
+                        <tr><td><strong>F5</strong></td><td>링 교착 (Sticking)</td><td>직경, 피스톤 온도, 누출량 상승</td><td>카본 퇴적으로 링 운동 저해 및 열전달 악화</td></tr>
+                    </tbody>
+                </table>
+
+                <h3 id="method-2">2. SHAP 기반 특징 공학</h3>
+                <p><strong>SHAP (SHapley Additive exPlanations)</strong> 값을 도입하여 각 열역학 파라미터가 진단 결과에 미치는 기여도를 정량화하였다.</p>
+                <div class="img-wrapper">
+                    <img src="https://github.com/user-attachments/assets/d8f0503a-4342-41df-8536-09a36673c249" alt="Tree SHAP">
+                    <span class="img-caption">그림 3 SHAP와 Tree SHAP의 상호작용 캡처 성능 비교</span>
+                </div>
+                <p>분석 결과, <strong>터빈 출구 온도 (P14)</strong>, <strong>블로우바이 열류 (P06)</strong>, <strong>라이너 벽면 열류 (P05)</strong>가 가장 중요한 지표로 확인되었다.</p>
+
+                <h3 id="method-3">3. 랜덤 포레스트 진단 모델</h3>
+                <p>소표본 데이터에서 강건한 성능을 보이는 랜덤 포레스트를 분류기로 채택하였다. 이는 트리 구조가 SHAP 분석과 완벽하게 호환되기 때문이다.</p>
+            </section>
+
+            <section id="why-shap-rf">
+                <h2>🎓 왜 SHAP + RF 인가?</h2>
+                <blockquote>
+                    <p>🍎 <strong>비유:</strong> 3명의 선수(특징 A, B, C)가 팀을 이뤄 100점을 얻었다면 보너스를 어떻게 나눌까? 단순히 득점수만 보는 것이 아니라, <strong>'그 선수가 없었을 때 팀 점수가 얼마나 깎이는가'</strong>를 계산하는 것이 SHAP의 원리다.</p>
+                </blockquote>
+                <ul>
+                    <li><strong>화이트박스(White-Box) 구현:</strong> "이것은 F4 고장입니다"라고만 하는 대신, "블로우바이 열류(P06)가 이상 상승했기 때문에 F4입니다"라고 설명한다.</li>
+                    <li><strong>엔지니어 신뢰도:</strong> 데이터의 변화가 물리적 현상과 일치하므로 현장 적용 시 신뢰도가 높다.</li>
+                </ul>
+            </section>
+
+            <section id="results">
+                <h2>📊 실험 결과 및 분석 (Results)</h2>
+                <table>
+                    <thead>
+                        <tr><th>Method</th><th>Mean Accuracy</th><th>Precision</th><th>Recall</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>KNN</td><td>89.81%</td><td>90.94%</td><td>89.81%</td></tr>
+                        <tr><td>SVM</td><td>92.13%</td><td>92.91%</td><td>92.13%</td></tr>
+                        <tr><td><strong>TSRF</strong></td><td><strong>99.07%</strong></td><td><strong>94.66%</strong></td><td><strong>94.44%</strong></td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section id="case-study">
+                <h2>💡 케이스 스터디: 피스톤 링 마모 (F4)</h2>
+                <div class="img-wrapper">
+                    <img src="https://github.com/user-attachments/assets/251899ec-aed6-4161-9958-aab7a55cc108" alt="F4 Case">
+                    <span class="img-caption">그림 4 SHAP 값에 기반한 F4 고장 분석 도표</span>
+                </div>
+                <details>
+                    <summary>열역학 파라미터 리스트 확인 (P01-P14)</summary>
+                    <table>
+                        <thead><tr><th>번호</th><th>파라미터 명칭</th><th>단위</th></tr></thead>
+                        <tbody>
+                            <tr><td>P01</td><td>실린더 압력 (Cylinder Pressure)</td><td>Pa</td></tr>
+                            <tr><td>P02</td><td>실린더 온도 (Cylinder Temperature)</td><td>K</td></tr>
+                            <tr><td>P03</td><td>피스톤 벽면 열류</td><td>J/deg</td></tr>
+                            <tr><td>P04</td><td>실린더 헤드 벽면 열류</td><td>J/deg</td></tr>
+                            <tr><td>P05</td><td>실린더 라이너 벽면 열류</td><td>J/deg</td></tr>
+                            <tr><td>P06</td><td>블로우바이 열류 (Blow-By Heat Flow)</td><td>J/deg</td></tr>
+                            <tr><td>P07</td><td>블로우바이 질량 유량</td><td>Kg/s</td></tr>
+                            <tr><td>P08</td><td>터빈 출력</td><td>J/s</td></tr>
+                            <tr><td>P09</td><td>배기 압력</td><td>Pa</td></tr>
+                            <tr><td>P10</td><td>배기 온도</td><td>K</td></tr>
+                            <tr><td>P11</td><td>터빈 전단 압력</td><td>Pa</td></tr>
+                            <tr><td>P12</td><td>터빈 전단 온도</td><td>K</td></tr>
+                            <tr><td>P13</td><td>터빈 후단 압력</td><td>Pa</td></tr>
+                            <tr><td>P14</td><td>터빈 후단 온도</td><td>K</td></tr>
+                        </tbody>
+                    </table>
+                </details>
+                <p>폭포수 플롯(Waterfall Plot) 분석 결과: <strong>P06 = 1.641</strong>(정상 범위 초과) 수치가 F4 판정의 결정적 기여자로 작용하였다. 이는 물리적 고장 로직과 완벽히 일치한다.</p>
+            </section>
+
+            <section id="bibtex">
+                <h2>📚 BibTeX</h2>
+                <pre>@article{Luo2025TSRF,
+  title = {Thermodynamic simulation-assisted random forest: Towards explainable fault diagnosis of combustion chamber components of marine diesel engines},
+  author = {Congcong Luo et al.},
+  journal = {Measurement},
+  year = {2025},
+  doi = {10.1016/j.measurement.2025.117252}
+}</pre>
+                <p>👉 전체 리소스 패키지: <a href="https://ts-rf.github.io/zh-CN/">https://ts-rf.github.io/zh-CN/</a></p>
+            </section>
+        </div>
+    </main>
+
+</body>
+</html>
